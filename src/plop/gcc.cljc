@@ -36,7 +36,7 @@
                   (cons op (map rec args))
 
                   (.)
-                  (list* op (rec (first args)) (next args))
+                  (list* op (rec (first args)) (second args) (map rec (nnext args)))
 
                   (js*)
                   (list* op (first args) (map rec (next args)))

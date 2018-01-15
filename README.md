@@ -9,7 +9,7 @@ Artifacts are released to Clojars.
 
 Leiningen coordinates :
 ```clj
-[plop "a.1"]
+[plop "a.2"]
 ```
 
 ## Documentation

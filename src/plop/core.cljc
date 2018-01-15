@@ -8,10 +8,10 @@
     (gcc/genstruct slots)
     (jvm/genstruct slots)))
 
-(defn- walk [f env sym]
+(defn- walk [f env & syms]
   (if (:js-globals env)
-    (gcc/walk f (update env :locals assoc sym {:name sym}))
-    (jvm/walk f #{sym})))
+    (gcc/walk f (update env :locals into (map (fn [sym] [sym {:name sym}])) syms))
+    (jvm/walk f (into #{} syms))))
 
 (defmacro
   ^{:doc "Defines a set of lexically scoped variables. Variables are bound to optionally type-hinted symbols, hold a reference to a value, are implicitly dereferenced each time they are accessed, and are assignable with set!.
@@ -36,3 +36,27 @@ Binding scope differs from let in that every variable defined in the block is sc
        ~@(map (fn [slot form] `(set! ~(members slot) ~(transform form)))
               slots (map second bindings))
        (do ~@(map transform body)))))
+
+(defmacro
+  ^{:doc "Defines a set of thread local lexically scoped variables."}
+  local [bindings & body]
+  (if (:js-globals &env)
+    `(place bindings ~@body)
+    (let [bindings (partition 2 bindings)
+          slots (map first bindings)
+          struct (genstruct slots &env)
+          slocal (gensym "local")
+          sgettl (gensym "gettl")
+          splace (gensym "place")
+          members (zipmap slots (map #(list '. (with-meta (list sgettl) {:tag struct}) (symbol (str "-" %))) slots))
+          transform (walk (fn [locals form] (or (and (not (locals form)) (members form)) form)) &env slocal sgettl splace)]
+      `(let [~slocal (ThreadLocal.)]
+         (letfn [(~sgettl []
+                   (or (.get ~slocal)
+                       (let [~splace ~struct]
+                         (.set ~slocal ~splace)
+                         ~@(map (fn [[slot init]]
+                                  `(set! (. ~splace ~(symbol (str "-" slot))) ~(transform init)))
+                                bindings)
+                         ~splace)))]
+           (do ~@(map transform body)))))))

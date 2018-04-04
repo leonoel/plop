@@ -60,3 +60,15 @@ Binding scope differs from let in that every variable defined in the block is sc
                                 bindings)
                          ~splace)))]
            (do ~@(map transform body)))))))
+
+(defmacro
+  ^{:doc "Captures current values of a set of variables, assigns them to new values, executes body, then reassigns them to old values and returns the result of body execution."}
+  setting [bindings & body]
+  (let [bindings (partition 2 bindings)
+        previous (repeatedly gensym)]
+    `(let [~@(interleave previous (map first bindings))]
+       (try
+         ~@(map (partial cons 'set!) bindings)
+         ~@body
+         (finally
+           ~@(map (partial list 'set!) (map first bindings) previous))))))

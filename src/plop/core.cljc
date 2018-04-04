@@ -46,20 +46,32 @@ Binding scope differs from let in that every variable defined in the block is sc
           slots (map first bindings)
           struct (genstruct slots &env)
           slocal (gensym "local")
-          sgettl (gensym "gettl")
           splace (gensym "place")
-          members (zipmap slots (map #(list '. (with-meta (list sgettl) {:tag struct}) (symbol (str "-" %))) slots))
-          transform (walk (fn [locals form] (or (and (not (locals form)) (members form)) form)) &env slocal sgettl splace)]
-      `(let [~slocal (ThreadLocal.)]
-         (letfn [(~sgettl []
-                   (or (.get ~slocal)
-                       (let [~splace ~struct]
-                         (.set ~slocal ~splace)
-                         ~@(map (fn [[slot init]]
-                                  `(set! (. ~splace ~(symbol (str "-" slot))) ~(transform init)))
-                                bindings)
-                         ~splace)))]
-           (do ~@(map transform body)))))))
+          attrs (map #(list `let [(with-meta splace {:tag (second struct)}) (list '. slocal 'get)]
+                            (list '. splace (symbol (str "-" %)))) slots)
+          slot->attr (zipmap slots attrs)
+          attr->slot (zipmap attrs slots)
+          getter (fn [locals form]
+                   (and (symbol? form)
+                        (not (contains? locals form))
+                        (slot->attr form)))
+          setter (fn [locals form]
+                   (and (seq? form)
+                        (= (first form) 'set!)
+                        (attr->slot (second form))
+                        (let [[l b t] (second form)]
+                          (list l b (list* 'set! t (nnext form))))))
+          transform (walk (fn [locals form] (or (getter locals form) (setter locals form) form))
+                          &env slocal splace)]
+      `(let [~slocal (ThreadLocal/withInitial
+                       (reify java.util.function.Supplier
+                         (get [_#]
+                           (let [~splace ~struct]
+                             ~@(map (fn [[slot init]]
+                                      `(set! (. ~splace ~(symbol (str "-" slot))) ~(transform init)))
+                                    bindings)
+                             ~splace))))]
+         (do ~@(map transform body))))))
 
 (defmacro
   ^{:doc "Captures current values of a set of variables, assigns them to new values, executes body, then reassigns them to old values and returns the result of body execution."}

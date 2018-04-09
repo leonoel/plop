@@ -38,7 +38,14 @@ Binding scope differs from let in that every variable defined in the block is sc
        (do ~@(map transform body)))))
 
 (defmacro
-  ^{:doc "Defines a set of thread local lexically scoped variables."}
+  ^{:doc "Defines a set of thread local lexically scoped variables. Variables are bound to optionally type-hinted symbols, hold a reference to a value, are implicitly dereferenced each time they are accessed, and are assignable with set!.
+Syntax :
+(local [symbol1 init-expression1
+        symbol2 init-expression2
+        ,,,]
+  body-expression1
+  body-expression2
+  ,,,)"}
   local [bindings & body]
   (if (:js-globals &env)
     `(place bindings ~@body)
@@ -74,7 +81,14 @@ Binding scope differs from let in that every variable defined in the block is sc
          (do ~@(map transform body))))))
 
 (defmacro
-  ^{:doc "Captures current values of a set of variables, assigns them to new values, executes body, then reassigns them to old values and returns the result of body execution."}
+  ^{:doc "Captures current values of a set of variables, assigns them to new values, executes body, then reassigns them to old values and returns the result of body execution. Assignments are made with set!.
+Syntax :
+(setting [variable1 value1
+          variable2 value2
+          ,,,]
+  body-expression1
+  body-expression2
+  ,,,)"}
   setting [bindings & body]
   (let [bindings (partition 2 bindings)
         previous (repeatedly gensym)]

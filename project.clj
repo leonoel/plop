@@ -1,4 +1,4 @@
-(defproject plop "a.3-SNAPSHOT"
+(defproject plop "a.3"
   :description "Facilities for imperative programming in Clojure"
   :url "https://github.com/leonoel/plop"
   :license {:name "Eclipse Public License"

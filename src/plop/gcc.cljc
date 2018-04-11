@@ -105,4 +105,7 @@
                            args))
 
                   (map rec form)) (meta form)))
-            (if (coll? form) (into (or (empty form) []) (map rec) form) form)))))))
+            (if (coll? form)
+              (-> (or (empty form) [])
+                  (into (map rec) form)
+                  (with-meta (meta form))) form)))))))

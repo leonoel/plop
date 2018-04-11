@@ -48,79 +48,83 @@
      (let [form (macroexpand form)]
        (f locs
           (if (seq? form)
-            (let [[op & args] form]
-              (case op
-                (quote var import*)
-                form
+            (with-meta
+              (let [[op & args] form]
+                (case op
+                  (quote var import*)
+                  form
 
-                (if throw do recur new set! monitor-enter monitor-exit)
-                (cons op (map rec args))
+                  (if throw do recur new set! monitor-enter monitor-exit)
+                  (cons op (map rec args))
 
-                (.)
-                (list* op (rec (first args)) (second args) (map rec (nnext args)))
+                  (.)
+                  (list* op (rec (first args)) (second args) (map rec (nnext args)))
 
-                (def)
-                (let [[name & body] args]
-                  (if-some [[init] body]
-                    (list op name ((walk f (conj locs name)) init))
-                    form))
+                  (def)
+                  (let [[name & body] args]
+                    (if-some [[init] body]
+                      (list op name ((walk f (conj locs name)) init))
+                      form))
 
-                (case*)
-                (let [[sym shift mask default imap & args] args]
-                  (list* op (rec sym) shift mask (rec default)
-                         (into {} (map (fn [[hash [cnst expr]]]
-                                         [hash [cnst (rec expr)]]))
-                               imap) args))
+                  (case*)
+                  (let [[sym shift mask default imap & args] args]
+                    (list* op (rec sym) shift mask (rec default)
+                           (into {} (map (fn [[hash [cnst expr]]]
+                                           [hash [cnst (rec expr)]]))
+                                 imap) args))
 
-                (try)
-                (cons op
-                      (map (fn [form]
-                             (if (seq? form)
-                               (let [[op & args] form]
-                                 (case op
-                                   catch (let [[type name & body] args]
-                                           (list* op type name (map (walk f (conj locs name)) body)))
-                                   finally (cons op (map rec args))
-                                   (rec form)))
-                               (rec form)))
-                           args))
+                  (try)
+                  (cons op
+                        (map (fn [form]
+                               (if (seq? form)
+                                 (let [[op & args] form]
+                                   (case op
+                                     catch (let [[type name & body] args]
+                                             (list* op type name (map (walk f (conj locs name)) body)))
+                                     finally (cons op (map rec args))
+                                     (rec form)))
+                                 (rec form)))
+                             args))
 
-                (let* loop*)
-                (let [[s b] (reduce (fn [[s b] [symbol form]]
-                                      [(conj s symbol) (conj b symbol ((walk f s) form))])
-                                    [locs []] (partition 2 (first args)))]
-                  (list* op b (map (walk f s) (next args))))
+                  (let* loop*)
+                  (let [[s b] (reduce (fn [[s b] [symbol form]]
+                                        [(conj s symbol) (conj b symbol ((walk f s) form))])
+                                      [locs []] (partition 2 (first args)))]
+                    (list* op b (map (walk f s) (next args))))
 
-                (fn*)
-                (let [name (when (symbol? (first args)) (first args))
-                      body (if name (rest args) args)
-                      defs (if (vector? (first body)) (list body) body)
-                      locs (if name (conj locs name) locs)]
-                  (concat (cons op (when name (list name)))
-                          (map (fn [[args & exprs]]
-                                 (cons args (map (walk f (into locs (remove #{'&}) args)) exprs)))
-                               defs)))
+                  (fn*)
+                  (let [name (when (symbol? (first args)) (first args))
+                        body (if name (rest args) args)
+                        defs (if (vector? (first body)) (list body) body)
+                        locs (if name (conj locs name) locs)]
+                    (concat (cons op (when name (list name)))
+                            (map (fn [[args & exprs]]
+                                   (cons args (map (walk f (into locs (remove #{'&}) args)) exprs)))
+                                 defs)))
 
-                (letfn*)
-                (let [bindings (partition 2 (first args))
-                      names (map first bindings)
-                      meths (map second bindings)
-                      walk (walk f (into locs names))]
-                  (list* op
-                         (vec (interleave names (map walk meths)))
-                         (map walk (next args))))
+                  (letfn*)
+                  (let [bindings (partition 2 (first args))
+                        names (map first bindings)
+                        meths (map second bindings)
+                        walk (walk f (into locs names))]
+                    (list* op
+                           (vec (interleave names (map walk meths)))
+                           (map walk (next args))))
 
-                (deftype*)
-                (concat (cons op (take 5 args))
-                        (map (fn [[name args & body]]
-                               (list* name args (map (walk f (into locs args)) body)))
-                             (drop 5 args)))
+                  (deftype*)
+                  (concat (cons op (take 5 args))
+                          (map (fn [[name args & body]]
+                                 (list* name args (map (walk f (into locs args)) body)))
+                               (drop 5 args)))
 
-                (reify*)
-                (list* op (first args)
-                       (map (fn [[name args & body]]
-                              (list* name args (map (walk f (into locs args)) body)))
-                            (next args)))
+                  (reify*)
+                  (list* op (first args)
+                         (map (fn [[name args & body]]
+                                (list* name args (map (walk f (into locs args)) body)))
+                              (next args)))
 
-                (map rec form)))
-            (if (coll? form) (into (or (empty form) []) (map rec) form) form)))))))
+                  (map rec form))) (meta form))
+            (if (coll? form)
+              (-> (or (empty form) [])
+                  (into (map rec) form)
+                  (with-meta (meta form))) form)))))))

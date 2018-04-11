@@ -67,7 +67,7 @@ Syntax :
                         (= (first form) 'set!)
                         (attr->slot (second form))
                         (let [[l b t] (second form)]
-                          (list l b (list* 'set! t (nnext form))))))
+                          (with-meta (list l b (list* 'set! t (nnext form))) (meta form)))))
           transform (walk (fn [locals form] (or (getter locals form) (setter locals form) form))
                           &env slocal splace)]
       `(let [~slocal (ThreadLocal/withInitial

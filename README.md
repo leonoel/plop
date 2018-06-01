@@ -10,7 +10,7 @@ Alpha. Users should expect breaking changes in future versions.
 ## Installation
 Artifacts are released to [clojars](https://clojars.org/plop).
 
-Current coordinates : `[plop "a.3"]`
+Current coordinates : `[plop "a.4"]`
 
 ## Documentation
 Single API namespace : `plop.core`.
